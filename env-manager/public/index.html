@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Variables Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            min-height: 600px;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            padding: 20px;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.2em;
+        }
+
+        .file-list {
+            margin-bottom: 20px;
+        }
+
+        .file-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-item:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+
+        .file-item.active {
+            background: #2196f3;
+            color: white;
+            border-color: #1976d2;
+        }
+
+        .file-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .file-path {
+            font-size: 0.85em;
+            opacity: 0.7;
+            word-break: break-all;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin: 3px;
+            transition: background 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #1e7e34; }
+        
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-warning:hover { background: #e0a800; }
+        
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+
+        .content-area {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .env-editor {
+            display: none;
+        }
+
+        .env-editor.active {
+            display: block;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .editor-title {
+            font-size: 1.5em;
+            color: #2c3e50;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .variables-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .variable-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .variable-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .variable-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .variable-key {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .variable-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+
+        .variable-value {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            min-height: 40px;
+        }
+
+        .add-variable {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            width: 100%;
+            margin-top: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .add-variable:hover {
+            background: #1e7e34;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .welcome-screen {
+            text-align: center;
+            padding: 80px 20px;
+            color: #6c757d;
+        }
+
+        .welcome-screen h2 {
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .welcome-screen p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Environment Variables Manager</h1>
+            <p>범용 .env 파일 관리 도구 - 모든 디렉토리의 환경변수를 웹에서 편리하게 관리하세요</p>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <h3>📁 환경 파일 목록</h3>
+                <div class="file-list" id="fileList">
+                    <!-- 파일 목록이 여기에 동적으로 추가됩니다 -->
+                </div>
+
+                <div class="controls">
+                    <button class="btn" onclick="showAddFileModal()">📂 파일 추가</button>
+                    <button class="btn btn-success" onclick="showScanModal()">🔍 디렉토리 스캔</button>
+                    <button class="btn btn-warning" onclick="showUploadModal()">📤 파일 업로드</button>
+                    <button class="btn" onclick="refreshFileList()">🔄 새로고침</button>
+                </div>
+
+                <div class="upload-area" id="uploadArea">
+                    <p>🎯 .env 파일을 여기에 드래그하여 업로드</p>
+                    <input type="file" id="fileInput" class="file-input" accept=".env" multiple>
+                    <button class="btn btn-sm" onclick="document.getElementById('fileInput').click()">파일 선택</button>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <h2>🚀 환경변수 관리 도구에 오신 것을 환영합니다!</h2>
+                    <p>
+                        왼쪽 사이드바에서 관리할 .env 파일을 선택하거나 추가하세요.<br>
+                        • 동일 디렉토리 내의 .env 파일 자동 감지<br>
+                        • 다른 디렉토리의 파일 수동 추가<br>
+                        • 드래그 앤 드롭으로 파일 업로드<br>
+                        • 실시간 편집 및 자동 백업
+                    </p>
+                </div>
+
+                <div class="env-editor" id="envEditor">
+                    <div class="editor-header">
+                        <div class="editor-title" id="editorTitle">환경변수 편집</div>
+                        <div class="editor-actions">
+                            <button class="btn btn-success" onclick="saveCurrentFile()">💾 저장</button>
+                            <button class="btn btn-warning" onclick="createBackup()">📋 백업</button>
+                            <button class="btn" onclick="downloadCurrentFile()">📥 다운로드</button>
+                            <button class="btn btn-danger" onclick="removeCurrentFile()">🗑️ 제거</button>
+                        </div>
+                    </div>
+
+                    <div class="variables-container" id="variablesContainer">
+                        <!-- 환경변수들이 여기에 동적으로 추가됩니다 -->
+                    </div>
+
+                    <button class="add-variable" onclick="addNewVariable()">➕ 새 환경변수 추가</button>
+                </div>
+
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 파일 추가 모달 -->
+    <div id="addFileModal" class="modal">
+        <div class="modal-content">
+            <h3>📂 환경 파일 추가</h3>
+            <div class="form-group">
+                <label for="filePath">파일 경로:</label>
+                <input type="text" id="filePath" placeholder="/path/to/.env" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('addFileModal')">취소</button>
+                <button class="btn btn-success" onclick="addEnvFile()">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 디렉토리 스캔 모달 -->
+    <div id="scanModal" class="modal">
+        <div class="modal-content">
+            <h3>🔍 디렉토리 스캔</h3>
+            <div class="form-group">
+                <label for="scanPath">스캔할 디렉토리:</label>
+                <input type="text" id="scanPath" placeholder="/path/to/directory" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('scanModal')">취소</button>
+                <button class="btn btn-success" onclick="scanDirectory()">스캔</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 업로드 모달 -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <h3>📤 파일 업로드</h3>
+            <div class="form-group">
+                <label for="uploadDestination">저장할 디렉토리 (선택사항):</label>
+                <input type="text" id="uploadDestination" placeholder="/path/to/destination" />
+            </div>
+            <div class="form-group">
+                <label for="uploadFileInput">파일 선택:</label>
+                <input type="file" id="uploadFileInput" accept=".env" multiple />
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('uploadModal')">취소</button>
+                <button class="btn btn-success" onclick="uploadFiles()">업로드</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
