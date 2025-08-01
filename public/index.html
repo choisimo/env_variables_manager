@@ -349,6 +349,45 @@
             animation: spin 1s linear infinite;
         }
 
+        .chat-message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        .chat-message.user {
+            background: #e3f2fd;
+            margin-left: 20px;
+        }
+
+        .chat-message.assistant {
+            background: #f3e5f5;
+            margin-right: 20px;
+        }
+
+        .chat-message.system {
+            background: #fff3e0;
+            font-style: italic;
+        }
+
+        .chat-message.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-indicator {
+            font-weight: bold;
+        }
+
+        .status-indicator.connected {
+            color: #28a745;
+        }
+
+        .status-indicator.disconnected {
+            color: #dc3545;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -385,6 +424,7 @@
                     <button class="btn btn-success" onclick="showScanModal()">🔍 디렉토리 스캔</button>
                     <button class="btn btn-warning" onclick="showUploadModal()">📤 파일 업로드</button>
                     <button class="btn" onclick="refreshFileList()">🔄 새로고침</button>
+                    <button class="btn" onclick="showAISettingsModal()" style="background: #9c27b0;">🤖 AI 설정</button>
                 </div>
 
                 <div class="upload-area" id="uploadArea">
@@ -413,6 +453,8 @@
                             <button class="btn btn-success" onclick="saveCurrentFile()">💾 저장</button>
                             <button class="btn btn-warning" onclick="createBackup()">📋 백업</button>
                             <button class="btn" onclick="downloadCurrentFile()">📥 다운로드</button>
+                            <button class="btn" onclick="downloadAllStates()">📦 전체 다운로드</button>
+                            <button class="btn" onclick="showAIChatModal()" style="background: #9c27b0;">🤖 AI 도우미</button>
                             <button class="btn btn-danger" onclick="removeCurrentFile()">🗑️ 제거</button>
                         </div>
                     </div>
@@ -478,6 +520,97 @@
         </div>
     </div>
 
+    <!-- AI 설정 모달 -->
+    <div id="aiSettingsModal" class="modal">
+        <div class="modal-content" style="width: 600px;">
+            <h3>🤖 AI API 설정</h3>
+            <p style="color: #6c757d; margin-bottom: 20px;">API 키는 브라우저의 로컬 스토리지에만 저장되며 서버로 전송되지 않습니다.</p>
+            
+            <div class="form-group">
+                <label for="openaiApiKey">OpenAI API Key:</label>
+                <input type="password" id="openaiApiKey" placeholder="sk-..." />
+                <small style="color: #6c757d;">GPT-4, GPT-3.5 모델 지원</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="openrouterApiKey">OpenRouter API Key:</label>
+                <input type="password" id="openrouterApiKey" placeholder="sk-or-..." />
+                <small style="color: #6c757d;">Claude, Llama, Gemini 등 다양한 모델 지원</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="geminiApiKey">Google Gemini API Key:</label>
+                <input type="password" id="geminiApiKey" placeholder="AI..." />
+                <small style="color: #6c757d;">Gemini Pro, Gemini Flash 모델 지원</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="preferredModel">기본 AI 모델:</label>
+                <select id="preferredModel">
+                    <option value="openai/gpt-4">OpenAI GPT-4</option>
+                    <option value="openai/gpt-3.5-turbo">OpenAI GPT-3.5 Turbo</option>
+                    <option value="openrouter/anthropic/claude-3-haiku">Claude 3 Haiku (OpenRouter)</option>
+                    <option value="openrouter/anthropic/claude-3-sonnet">Claude 3 Sonnet (OpenRouter)</option>
+                    <option value="openrouter/meta-llama/llama-3-8b-instruct">Llama 3 8B (OpenRouter)</option>
+                    <option value="gemini/gemini-pro">Gemini Pro</option>
+                    <option value="gemini/gemini-flash">Gemini Flash</option>
+                </select>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                <h4 style="margin-bottom: 10px;">현재 설정 상태:</h4>
+                <div id="aiSettingsStatus">
+                    <div>OpenAI: <span id="openaiStatus" class="status-indicator">❌ 미설정</span></div>
+                    <div>OpenRouter: <span id="openrouterStatus" class="status-indicator">❌ 미설정</span></div>
+                    <div>Gemini: <span id="geminiStatus" class="status-indicator">❌ 미설정</span></div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('aiSettingsModal')">취소</button>
+                <button class="btn btn-danger" onclick="clearAllAPIKeys()">모든 키 삭제</button>
+                <button class="btn btn-success" onclick="saveAISettings()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI 채팅 모달 -->
+    <div id="aiChatModal" class="modal">
+        <div class="modal-content" style="width: 800px; height: 600px; display: flex; flex-direction: column;">
+            <h3>🤖 AI 환경변수 도우미</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                    <label for="chatModel">사용 모델:</label>
+                    <select id="chatModel" style="margin-left: 10px;">
+                        <!-- 옵션은 동적으로 추가됩니다 -->
+                    </select>
+                </div>
+                <button class="btn btn-sm" onclick="clearChatHistory()">대화 기록 삭제</button>
+            </div>
+            
+            <div id="chatHistory" style="flex: 1; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; overflow-y: auto; background: #f8f9fa; margin-bottom: 15px;">
+                <div class="chat-message system">
+                    <strong>AI 도우미:</strong> 안녕하세요! 환경변수 관리를 도와드리겠습니다. 다음과 같은 작업이 가능합니다:<br>
+                    • 환경변수 추가/수정/삭제<br>
+                    • 환경변수 값 검증 및 제안<br>
+                    • 보안 관련 조언<br>
+                    • 설정 파일 구조화<br><br>
+                    어떤 도움이 필요하신가요?
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chatInput" placeholder="환경변수에 대해 질문해보세요..." style="flex: 1; padding: 10px; border: 1px solid #ced4da; border-radius: 6px;" />
+                <button class="btn btn-success" onclick="sendChatMessage()" id="sendButton">전송</button>
+            </div>
+            
+            <div class="modal-actions" style="margin-top: 15px;">
+                <button class="btn" onclick="closeModal('aiChatModal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
