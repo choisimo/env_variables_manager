@@ -122,4 +122,12 @@ PORT=3002 npm start
 
 ## 라이센스
 
+## Preview
+
+![Preview 2](./preview-2.png)
+![Preview 3](./preview-3.png)
+![Preview 4](./preview-4.png)
+![Preview 5](./preview-5.png)
+![Preview 6](./preview-6.png)
+
 MIT License

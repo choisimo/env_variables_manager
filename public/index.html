@@ -527,42 +527,42 @@
             <p style="color: #6c757d; margin-bottom: 20px;">API 키는 브라우저의 로컬 스토리지에만 저장되며 서버로 전송되지 않습니다.</p>
             
             <div class="form-group">
-                <label for="openaiApiKey">OpenAI API Key:</label>
-                <input type="password" id="openaiApiKey" placeholder="sk-..." />
-                <small style="color: #6c757d;">GPT-4, GPT-3.5 모델 지원</small>
+                <label for="providerAApiKey">Provider A API Key:</label>
+                <input type="password" id="providerAApiKey" placeholder="sk-..." />
+                <small style="color: #6c757d;">Provider A 모델 지원</small>
             </div>
             
             <div class="form-group">
-                <label for="openrouterApiKey">OpenRouter API Key:</label>
-                <input type="password" id="openrouterApiKey" placeholder="sk-or-..." />
-                <small style="color: #6c757d;">Claude, Llama, Gemini 등 다양한 모델 지원</small>
+                <label for="providerBApiKey">Provider B API Key:</label>
+                <input type="password" id="providerBApiKey" placeholder="sk-..." />
+                <small style="color: #6c757d;">Provider B 다양한 모델 지원</small>
             </div>
             
             <div class="form-group">
-                <label for="geminiApiKey">Google Gemini API Key:</label>
-                <input type="password" id="geminiApiKey" placeholder="AI..." />
-                <small style="color: #6c757d;">Gemini Pro, Gemini Flash 모델 지원</small>
+                <label for="providerCApiKey">Provider C API Key:</label>
+                <input type="password" id="providerCApiKey" placeholder="AI..." />
+                <small style="color: #6c757d;">Provider C 모델 지원</small>
             </div>
             
             <div class="form-group">
                 <label for="preferredModel">기본 AI 모델:</label>
                 <select id="preferredModel">
-                    <option value="openai/gpt-4">OpenAI GPT-4</option>
-                    <option value="openai/gpt-3.5-turbo">OpenAI GPT-3.5 Turbo</option>
-                    <option value="openrouter/anthropic/claude-3-haiku">Claude 3 Haiku (OpenRouter)</option>
-                    <option value="openrouter/anthropic/claude-3-sonnet">Claude 3 Sonnet (OpenRouter)</option>
-                    <option value="openrouter/meta-llama/llama-3-8b-instruct">Llama 3 8B (OpenRouter)</option>
-                    <option value="gemini/gemini-pro">Gemini Pro</option>
-                    <option value="gemini/gemini-flash">Gemini Flash</option>
+                    <option value="provider_a/model_1">Provider A Model 1</option>
+                    <option value="provider_a/model_2">Provider A Model 2</option>
+                    <option value="provider_b/model_1">Provider B Model 1</option>
+                    <option value="provider_b/model_2">Provider B Model 2</option>
+                    <option value="provider_b/model_3">Provider B Model 3</option>
+                    <option value="provider_c/model_1">Provider C Model 1</option>
+                    <option value="provider_c/model_2">Provider C Model 2</option>
                 </select>
             </div>
             
             <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0;">
                 <h4 style="margin-bottom: 10px;">현재 설정 상태:</h4>
                 <div id="aiSettingsStatus">
-                    <div>OpenAI: <span id="openaiStatus" class="status-indicator">❌ 미설정</span></div>
-                    <div>OpenRouter: <span id="openrouterStatus" class="status-indicator">❌ 미설정</span></div>
-                    <div>Gemini: <span id="geminiStatus" class="status-indicator">❌ 미설정</span></div>
+                    <div>Provider A: <span id="providerAStatus" class="status-indicator">❌ 미설정</span></div>
+                    <div>Provider B: <span id="providerBStatus" class="status-indicator">❌ 미설정</span></div>
+                    <div>Provider C: <span id="providerCStatus" class="status-indicator">❌ 미설정</span></div>
                 </div>
             </div>
             
