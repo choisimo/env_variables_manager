@@ -17,25 +17,28 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "multer": "^1.4.5-lts.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "fs-extra": "^11.1.1",
+    "multer": "^1.4.5-lts.1",
+    "node-pty": "^1.0.0",
     "path": "^0.12.7",
-    "uuid": "^9.0.0"
+    "ssh2": "^1.16.0",
+    "uuid": "^9.0.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.5.0",
-    "supertest": "^6.3.3",
+    "@babel/preset-env": "^7.22.5",
+    "babel-jest": "^29.5.0",
     "cypress": "^12.17.1",
     "eslint": "^8.43.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-jest": "^27.2.2",
+    "jest": "^29.5.0",
+    "nodemon": "^3.0.1",
     "prettier": "^2.8.8",
-    "@babel/preset-env": "^7.22.5",
-    "babel-jest": "^29.5.0"
+    "supertest": "^6.3.3"
   },
   "jest": {
     "testEnvironment": "node",
@@ -55,9 +58,17 @@
         "statements": 80
       }
     },
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"]
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ]
   },
-  "keywords": ["environment", "variables", "management", "web", "admin"],
+  "keywords": [
+    "environment",
+    "variables",
+    "management",
+    "web",
+    "admin"
+  ],
   "author": "",
   "license": "MIT"
 }

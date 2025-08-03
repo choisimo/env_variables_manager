@@ -4,6 +4,10 @@ const fs = require('fs-extra');
 const path = require('path');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const WebSocket = require('ws');
+const pty = require('node-pty');
+const { Client } = require('ssh2');
+const http = require('http');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,13 +33,6 @@ function sanitizeFileNameForHeader(fileName) {
         .replace(/\s+/g, '_')
         .substring(0, 100);
 }
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // === 에러 처리 미들웨어 ===
 
@@ -243,17 +240,36 @@ class EnvManager {
       throw new Error('Environment file not found');
     }
 
+    console.log('📝 writeEnvFile - File path:', envFile.path);
+    console.log('📝 writeEnvFile - Variables structure:', JSON.stringify(variables, null, 2));
+
     let content = '';
-    Object.entries(variables).forEach(([key, data]) => {
-      const value = data.value;
-      const needsQuotes = value.includes(' ') || value.includes('\n') || value.includes('\t');
-      content += `${key}=${needsQuotes ? `"${value}"` : value}\n`;
-    });
+    try {
+      Object.entries(variables).forEach(([key, data]) => {
+        console.log(`Processing variable: ${key}`, data);
+        const value = data && data.value !== undefined ? data.value : '';
+        const needsQuotes = value.includes(' ') || value.includes('\n') || value.includes('\t');
+        content += `${key}=${needsQuotes ? `"${value}"` : value}\n`;
+      });
+      
+      console.log('📝 Generated content:', content);
+    } catch (variableError) {
+      console.error('❌ Error processing variables:', variableError);
+      throw new Error(`Failed to process variables: ${variableError.message}`);
+    }
 
     try {
       await fs.writeFile(envFile.path, content, 'utf8');
+      console.log('✅ File written successfully to:', envFile.path);
       return true;
     } catch (error) {
+      console.error('❌ File write error:', error);
+      
+      // 권한 오류인 경우 더 상세한 메시지 제공
+      if (error.code === 'EACCES') {
+        throw new Error(`EACCES: 파일 쓰기 권한이 없습니다. 파일: ${envFile.path}`);
+      }
+      
       throw new Error(`Failed to write file: ${error.message}`);
     }
   }
@@ -332,11 +348,34 @@ app.put('/api/env-files/:id', async (req, res) => {
     const { id } = req.params;
     const { variables } = req.body;
     
-    await envManager.createBackup(id);
-    await envManager.writeEnvFile(id, variables);
+    console.log(`📝 PUT /api/env-files/${id} - Starting save operation`);
+    console.log('Variables received:', Object.keys(variables).length, 'keys');
     
-    res.json({ success: true, message: 'Environment file updated successfully' });
+    // 백업 시도 (실패해도 저장은 계속 진행)
+    let backupWarning = null;
+    try {
+      await envManager.createBackup(id);
+      console.log('✅ Backup created successfully');
+    } catch (backupError) {
+      console.warn('⚠️ Backup failed, but continuing with save:', backupError.message);
+      backupWarning = `Backup failed: ${backupError.message}`;
+    }
+    
+    // 파일 저장
+    console.log('💾 Attempting to write env file...');
+    await envManager.writeEnvFile(id, variables);
+    console.log('✅ File written successfully');
+    
+    const response = { success: true, message: 'Environment file updated successfully' };
+    if (backupWarning) {
+      response.warning = backupWarning;
+    }
+    
+    console.log('📤 Sending response:', response);
+    res.json(response);
   } catch (error) {
+    console.error('❌ PUT /api/env-files/:id error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -558,7 +597,225 @@ app.use('*', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+// HTTP 서버 생성
+const server = http.createServer(app);
+
+// 웹소켓 서버 생성
+const wss = new WebSocket.Server({ server });
+
+// 터미널 세션 관리
+const terminals = new Map();
+const sshConnections = new Map();
+
+// === 터미널 관리 클래스 ===
+class TerminalManager {
+    constructor() {
+        this.sessions = new Map();
+        this.sshSessions = new Map();
+    }
+
+    createLocalTerminal(sessionId, directory = null) {
+        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+        const workingDir = directory || process.env.HOME || process.cwd();
+        
+        const ptyProcess = pty.spawn(shell, [], {
+            name: 'xterm-color',
+            cols: 80,
+            rows: 24,
+            cwd: workingDir,
+            env: process.env
+        });
+
+        this.sessions.set(sessionId, {
+            type: 'local',
+            process: ptyProcess,
+            createdAt: new Date(),
+            directory: workingDir
+        });
+
+        return ptyProcess;
+    }
+
+    createSSHTerminal(sessionId, config) {
+        return new Promise((resolve, reject) => {
+            const conn = new Client();
+            
+            conn.on('ready', () => {
+                conn.shell((err, stream) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    this.sshSessions.set(sessionId, {
+                        type: 'ssh',
+                        connection: conn,
+                        stream: stream,
+                        createdAt: new Date()
+                    });
+
+                    resolve(stream);
+                });
+            });
+
+            conn.on('error', reject);
+
+            // SSH 연결 설정
+            const connectConfig = {
+                host: config.host,
+                port: config.port || 22,
+                username: config.username
+            };
+
+            if (config.privateKey) {
+                connectConfig.privateKey = config.privateKey;
+            } else if (config.password) {
+                connectConfig.password = config.password;
+            }
+
+            conn.connect(connectConfig);
+        });
+    }
+
+    destroySession(sessionId) {
+        const localSession = this.sessions.get(sessionId);
+        if (localSession) {
+            localSession.process.kill();
+            this.sessions.delete(sessionId);
+        }
+
+        const sshSession = this.sshSessions.get(sessionId);
+        if (sshSession) {
+            sshSession.stream.close();
+            sshSession.connection.end();
+            this.sshSessions.delete(sessionId);
+        }
+    }
+
+    getSession(sessionId) {
+        return this.sessions.get(sessionId) || this.sshSessions.get(sessionId);
+    }
+}
+
+const terminalManager = new TerminalManager();
+
+// 웹소켓 연결 처리
+wss.on('connection', (ws, req) => {
+    const sessionId = uuidv4();
+    console.log(`🔌 New terminal connection: ${sessionId}`);
+
+    ws.on('message', async (message) => {
+        try {
+            const data = JSON.parse(message);
+            
+            switch (data.type) {
+                case 'create_local_terminal':
+                    try {
+                        const directory = data.directory || null;
+                        const ptyProcess = terminalManager.createLocalTerminal(sessionId, directory);
+                        
+                        ptyProcess.onData((data) => {
+                            ws.send(JSON.stringify({
+                                type: 'terminal_output',
+                                data: data
+                            }));
+                        });
+
+                        ptyProcess.onExit((code) => {
+                            ws.send(JSON.stringify({
+                                type: 'terminal_exit',
+                                code: code
+                            }));
+                        });
+
+                        const responseMessage = {
+                            type: 'terminal_ready',
+                            sessionId: sessionId
+                        };
+                        
+                        if (directory) {
+                            responseMessage.message = `📁 디렉토리: ${directory}`;
+                        }
+                        
+                        ws.send(JSON.stringify(responseMessage));
+                    } catch (error) {
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: `Failed to create terminal: ${error.message}`
+                        }));
+                    }
+                    break;
+
+                case 'create_ssh_terminal':
+                    try {
+                        const stream = await terminalManager.createSSHTerminal(sessionId, data.config);
+                        
+                        stream.on('data', (data) => {
+                            ws.send(JSON.stringify({
+                                type: 'terminal_output',
+                                data: data.toString()
+                            }));
+                        });
+
+                        stream.on('close', () => {
+                            ws.send(JSON.stringify({
+                                type: 'terminal_exit',
+                                code: 0
+                            }));
+                        });
+
+                        ws.send(JSON.stringify({
+                            type: 'terminal_ready',
+                            sessionId: sessionId
+                        }));
+                    } catch (error) {
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: `SSH connection failed: ${error.message}`
+                        }));
+                    }
+                    break;
+
+                case 'terminal_input':
+                    const session = terminalManager.getSession(sessionId);
+                    if (session) {
+                        if (session.type === 'local') {
+                            session.process.write(data.data);
+                        } else if (session.type === 'ssh') {
+                            session.stream.write(data.data);
+                        }
+                    }
+                    break;
+
+                case 'terminal_resize':
+                    const resizeSession = terminalManager.getSession(sessionId);
+                    if (resizeSession && resizeSession.type === 'local') {
+                        resizeSession.process.resize(data.cols, data.rows);
+                    }
+                    break;
+            }
+        } catch (error) {
+            console.error('WebSocket message error:', error);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid message format'
+            }));
+        }
+    });
+
+    ws.on('close', () => {
+        console.log(`🔌 Terminal connection closed: ${sessionId}`);
+        terminalManager.destroySession(sessionId);
+    });
+
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        terminalManager.destroySession(sessionId);
+    });
+});
+
+// 서버 시작
+server.listen(PORT, () => {
     console.log(`Environment Manager Server running on http://localhost:${PORT}`);
     console.log('Features:');
     console.log('- Manage multiple .env files from different directories');
@@ -568,6 +825,7 @@ app.listen(PORT, () => {
     console.log('- Directory scanning for .env files');
     console.log('- Enhanced error handling and logging');
     console.log('- Performance monitoring and metrics');
+    console.log('- 🖥️  Web Terminal with SSH support');
     
     // 정기적인 시스템 모니터링 시작
     if (process.env.NODE_ENV !== 'test') {
