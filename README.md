@@ -358,6 +358,5 @@ POST /api/metrics   # 클라이언트 메트릭 전송
 ---
 
 <div align="center">
-  <p>⭐ 이 프로젝트가 도움이 되셨다면 스타를 눌러주세요!</p>
-  <p>Made with ❤️ by the Environment Variables Manager Team</p>
+  <p>Made by nodove</p>
 </div>
